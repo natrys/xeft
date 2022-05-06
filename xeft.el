@@ -110,6 +110,8 @@
 
 (require 'cl-lib)
 (require 'subr-x) ; ‘string-trim’
+(require 'project)
+(require 'seq)
 (declare-function xapian-lite-reindex-file nil
                   (path dbpath &optional lang force))
 (declare-function xapian-lite-query-term nil
@@ -159,7 +161,10 @@
 
 (defcustom xeft-filename-fn
   (lambda (search-phrase)
-    (concat search-phrase "." xeft-default-extension))
+    (concat
+     (string-replace " " "-" (downcase search-phrase))
+     "."
+     xeft-default-extension))
   "A function that takes the search phrase and returns a filename."
   :type 'function)
 
@@ -414,7 +419,7 @@ If success return non-nil, otherwise return nil."
               (y-or-n-p (format "Create file `%s'? " file-name)))
       (find-file file-path)
       (unless exists-p
-        (insert search-phrase "\n\n")
+        (insert "#+TITLE: " search-phrase "\n\n")
         (save-buffer)
         ;; This should cover most cases.
         (xeft--front-page-cache-refresh))
@@ -483,7 +488,9 @@ the database."
 (defun xeft--find-file-at-point ()
   "View file at point."
   (interactive)
-  (find-file (button-get (button-at (point)) 'path))
+  (if (equal current-prefix-arg '(4))
+      (find-file-other-window (button-get (button-at (point)) 'path))
+    (find-file (button-get (button-at (point)) 'path)))
   (run-hooks 'xeft-find-file-hook)
   (add-hook 'after-save-hook #'xeft--after-save 0 t))
 
@@ -735,11 +742,14 @@ files and directories and check for ‘xeft-ignore-extension’."
   (cl-remove-if-not
    xeft-file-filter
    (if xeft-recursive
-       (directory-files-recursively
-        xeft-directory "" nil xeft-directory-filter
-        (eq xeft-recursive 'follow-symlinks))
-     (directory-files
-      xeft-directory t nil t))))
+       (seq-filter
+        (lambda (file)
+          (string-suffix-p (concat "." xeft-default-extension) file))
+        (if (file-exists-p (concat xeft-directory ".git"))
+            (let ((default-directory xeft-directory))
+              (project-files (project-current)))
+          (directory-files-recursively xeft-directory "" nil t)))
+     (directory-files xeft-directory t nil t))))
 
 (defvar-local xeft--need-refresh t
   "If change is made to the buffer, set this to t.
