@@ -494,6 +494,51 @@ the database."
   (run-hooks 'xeft-find-file-hook)
   (add-hook 'after-save-hook #'xeft--after-save 0 t))
 
+(defun xeft--truncate (len s)
+  "If S is longer than LEN, cut it down and add ELLIPSIS to the end.
+
+The resulting string, including ellipsis, will be LEN characters
+long.
+
+When not specified, ELLIPSIS defaults to ‘...’."
+  (declare (pure t) (side-effect-free t))
+  (let ((ellipsis "..."))
+    (if (> (length s) len)
+        (format "%s%s" (substring s 0 (- len (length ellipsis))) ellipsis)
+      s)))
+
+(defun xeft-open-file ()
+  (interactive)
+  (find-file (xeft-completing-read))
+  (run-hooks 'xeft-find-file-hook)
+  (add-hook 'after-save-hook #'xeft--after-save 0 t))
+
+(defun xeft-completing-read ()
+  (completing-read
+   "Choose a file: "
+   (thread-last
+     (xeft--file-list)
+     (mapcar #'file-relative-name)
+     (xeft--completion-table))))
+
+(defun xeft--completion-table (seq)
+  (lambda (string pred action)
+    (cond
+     ((eq action 'metadata)
+      '(metadata
+        (category . file)
+        (display-sort-function . my-files-sort-by-mtime)
+        (group-function . xeft--group-candidates)))
+     (t (complete-with-action action seq string pred)))))
+
+(defun xeft--group-candidates (cand transform)
+  (if transform
+      (xeft--truncate 80 (file-name-nondirectory cand))
+    (cond
+     ((string-prefix-p "org-roam/" cand) "Org-Roam")
+     ((string-prefix-p "reading/" cand) "Reading")
+     (t "Deft"))))
+
 (defun xeft--preview-file (file &optional select)
   "View FILE in another window.
 If SELECT is non-nil, select the buffer after displaying it."
@@ -736,19 +781,14 @@ directories."
   (not (string-prefix-p "." (file-name-base dir))))
 
 (defun xeft--file-list ()
-  "Default function for ‘xeft-file-list-function’.
-Return a list of all files in ‘xeft-directory’, ignoring dot
-files and directories and check for ‘xeft-ignore-extension’."
+  "Return a list of all files in ‘xeft-directory’ recursively."
   (cl-remove-if-not
    xeft-file-filter
    (if xeft-recursive
-       (seq-filter
-        (lambda (file)
-          (string-suffix-p (concat "." xeft-default-extension) file))
-        (if (file-exists-p (concat xeft-directory ".git"))
-            (let ((default-directory xeft-directory))
-              (project-files (project-current)))
-          (directory-files-recursively xeft-directory "" nil t)))
+       (if (file-exists-p (concat xeft-directory ".git"))
+           (let ((default-directory xeft-directory))
+             (project-files (project-current)))
+         (directory-files-recursively xeft-directory "" nil t))
      (directory-files xeft-directory t nil t))))
 
 (defvar-local xeft--need-refresh t
