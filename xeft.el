@@ -570,16 +570,8 @@ If SELECT is non-nil, select the buffer after displaying it."
 
 (define-button-type 'xeft-excerpt
   'action (lambda (button)
-            ;; If the file is no already highlighted, highlight it
-            ;; first.
-            (when (not (and xeft--select-overlay
-                            (overlay-buffer xeft--select-overlay)
-                            (<= (overlay-start xeft--select-overlay)
-                                (button-start button)
-                                (overlay-end xeft--select-overlay))))
-              (goto-char (button-start button))
-              (xeft--highlight-file-at-point))
-            (xeft--preview-file (button-get button 'path)))
+            (goto-char (button-start button))
+            (xeft--find-file-at-point))
   'keymap (let ((map (make-sparse-keymap)))
             (set-keymap-parent map button-map)
             (define-key map (kbd "RET") #'xeft--find-file-at-point)
