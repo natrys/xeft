@@ -234,6 +234,7 @@ query_term
         // +/-.
         (term, Xapian::QueryParser::FLAG_CJK_NGRAM
          | Xapian::QueryParser::FLAG_PARTIAL
+         | Xapian::QueryParser::FLAG_WILDCARD
          | Xapian::QueryParser::FLAG_DEFAULT);
     }
   // If the syntax is syntactically wrong, Xapian throws this error.
@@ -242,7 +243,8 @@ query_term
     {
       query = parser.parse_query
         (term, Xapian::QueryParser::FLAG_CJK_NGRAM
-         | Xapian::QueryParser::FLAG_PARTIAL);
+         | Xapian::QueryParser::FLAG_PARTIAL
+         | Xapian::QueryParser::FLAG_WILDCARD);
     }
   
   Xapian::Enquire enquire (database);
